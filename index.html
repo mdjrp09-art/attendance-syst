@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Smart QR Attendance</title>
+  <title>Smart QR Attendance (Offline)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
@@ -22,7 +22,7 @@
 
     .card {
       width: 100%;
-      max-width: 480px;
+      max-width: 520px;
       background: rgba(255,255,255,0.96);
       border-radius: 20px;
       box-shadow: 0 18px 40px rgba(0,0,0,0.18);
@@ -52,28 +52,7 @@
       margin-top: 4px;
     }
 
-    .card-body { padding: 18px 20px; }
-
-    label {
-      font-size: 0.85rem;
-      color: #555;
-      display: block;
-      margin-bottom: 4px;
-    }
-
-    input {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 8px;
-      border: 1px solid #cfd8dc;
-      font-size: 0.9rem;
-      margin-bottom: 10px;
-    }
-
-    input:focus {
-      border-color: #1976d2;
-      box-shadow: 0 0 0 2px rgba(25,118,210,0.2);
-    }
+    .card-body { padding: 18px 20px 20px; }
 
     button {
       width: 100%;
@@ -84,6 +63,7 @@
       font-weight: 600;
       letter-spacing: 0.03em;
       margin-top: 6px;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
     }
 
     button.primary {
@@ -94,11 +74,34 @@
 
     button.secondary {
       background: #eceff1;
+      color: #37474f;
     }
 
-    .status { font-size: 0.8rem; min-height: 20px; }
+    button.danger {
+      background: #ef5350;
+      color: white;
+    }
+
+    button:active {
+      transform: translateY(1px);
+      box-shadow: none;
+      opacity: 0.9;
+    }
+
+    .status { font-size: 0.8rem; min-height: 20px; margin-top: 6px; }
     .status.error { color: #c62828; }
     .status.ok { color: #2e7d32; }
+
+    .tabs { display:flex; gap:6px; margin-bottom:10px; }
+    .tab-btn {
+      flex:1; padding:6px; border-radius:999px; border:none; cursor:pointer;
+      background:#eceff1; font-size:0.8rem; color:#455a64;
+    }
+    .tab-btn.active {
+      background:#1976d2; color:white;
+      box-shadow:0 4px 10px rgba(25,118,210,0.4);
+    }
+
     .hidden { display:none !important; }
 
     #reader {
@@ -108,99 +111,129 @@
       background: #000;
     }
 
-    .tabs { display:flex; gap:6px; margin-bottom:10px; }
-    .tab-btn {
-      flex:1; padding:6px; border-radius:999px; border:none; cursor:pointer;
-      background:#eceff1; font-size:0.8rem;
-    }
-    .tab-btn.active {
-      background:#1976d2; color:white;
-      box-shadow:0 4px 10px rgba(25,118,210,0.4);
-    }
-
     table {
-      width:100%; border-collapse:collapse; margin-top:10px;
+      width:100%;
+      border-collapse:collapse;
+      margin-top:10px;
       font-size:0.8rem;
+      background:white;
     }
-    th,td { padding:6px 4px; border-bottom:1px solid #eceff1; }
+    th,td { padding:6px 4px; border-bottom:1px solid #eceff1; text-align:left; }
     th { background:#eceff1; }
     tbody tr:nth-child(even) { background:#f9f9f9; }
 
+    .pill {
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:0.72rem;
+      background:#e3f2fd;
+      color:#1976d2;
+      font-weight:600;
+    }
+
+    .settings-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:6px;
+      margin-top:6px;
+    }
+
+    label {
+      font-size:0.78rem;
+      color:#455a64;
+      display:block;
+      margin-bottom:2px;
+    }
+
+    input.small-input {
+      width:100%;
+      padding:4px 6px;
+      border-radius:8px;
+      border:1px solid #cfd8dc;
+      font-size:0.8rem;
+    }
+
+    input.small-input:focus {
+      border-color:#1976d2;
+      box-shadow:0 0 0 2px rgba(25,118,210,0.2);
+      outline:none;
+    }
+
+    @media (max-width:480px){
+      .card { border-radius:16px; }
+      .card-header h1 { font-size:1.15rem; }
+    }
   </style>
 </head>
 
 <body>
 
-<!-- LOGIN -->
-<div class="card" id="loginCard">
+<div class="card">
   <div class="card-header">
     <h1>Smart QR Attendance</h1>
-    <div class="card-subtitle">Multi-company Login</div>
-  </div>
-
-  <div class="card-body">
-    <label>Login ID</label>
-    <input id="loginId" type="text">
-
-    <label>Password</label>
-    <input id="loginPass" type="password">
-
-    <button class="primary" onclick="login()">Login</button>
-    <div id="loginStatus" class="status"></div>
-  </div>
-</div>
-
-<!-- APP -->
-<div class="card hidden" id="appCard">
-  <div class="card-header">
-    <h1 id="companyTitle">Attendance</h1>
-    <div class="card-subtitle" id="todayLabel"></div>
+    <div class="card-subtitle">
+      Offline – data stored in this browser. <span id="todayLabel" class="pill"></span>
+    </div>
   </div>
 
   <div class="card-body">
 
     <div class="tabs">
-      <button id="tabScan" class="tab-btn active" onclick="showTab('scan')">Scan</button>
-      <button id="tabReport" class="tab-btn" onclick="showTab('report')">Report</button>
+      <button id="tabScan" class="tab-btn active" onclick="showTab('scan')">Scan &amp; Mark</button>
+      <button id="tabReport" class="tab-btn" onclick="showTab('report')">Monthly Report</button>
     </div>
 
     <!-- SCAN TAB -->
     <div id="scanTab">
       <button class="primary" onclick="startScan()">📷 Scan QR</button>
-      <button class="secondary" onclick="stopScan()">Stop</button>
+      <button class="secondary" onclick="stopScan()">✖ Stop Scanner</button>
       <div id="scanStatus" class="status"></div>
 
       <div id="reader" class="hidden"></div>
 
       <table id="todayTable">
-        <thead><tr><th>Name</th><th>IN</th><th>OUT</th></tr></thead>
+        <thead>
+          <tr><th>Name</th><th>IN</th><th>OUT</th></tr>
+        </thead>
         <tbody></tbody>
       </table>
+
+      <button class="secondary" onclick="exportCSV()">⬇ Download All Data (CSV)</button>
+      <button class="danger" onclick="clearToday()">Clear Today (only)</button>
     </div>
 
     <!-- REPORT TAB -->
     <div id="reportTab" class="hidden">
-      <label>Year</label>
-      <input id="yearInput" type="number">
+      <div class="settings-grid">
+        <div>
+          <label>Year</label>
+          <input id="yearInput" type="number" class="small-input">
+        </div>
+        <div>
+          <label>Month (1-12)</label>
+          <input id="monthInput" type="number" class="small-input" min="1" max="12">
+        </div>
+        <div>
+          <label>Shift Start (HH:MM)</label>
+          <input id="shiftInput" type="time" class="small-input" value="09:00">
+        </div>
+        <div>
+          <label>Grace Minutes</label>
+          <input id="graceInput" type="number" class="small-input" value="15" min="0">
+        </div>
+        <div>
+          <label>Late days → ½ day</label>
+          <input id="lateLimitInput" type="number" class="small-input" value="3" min="1">
+        </div>
+      </div>
 
-      <label>Month (1-12)</label>
-      <input id="monthInput" type="number">
-
-      <label>Shift Start (HH:MM)</label>
-      <input id="shiftInput" type="time" value="09:00">
-
-      <label>Grace Minutes</label>
-      <input id="graceInput" type="number" value="15">
-
-      <label>Late Days for Half-Day</label>
-      <input id="lateLimitInput" type="number" value="3">
-
-      <button class="primary" onclick="generateReport()">Generate</button>
+      <button class="primary" onclick="generateReport()">Generate Report</button>
       <div id="reportStatus" class="status"></div>
 
       <table id="reportTable">
         <thead>
-          <tr><th>Name</th><th>Present</th><th>Late</th><th>Half-Day</th></tr>
+          <tr><th>Name</th><th>Present days</th><th>Late days</th><th>Half-day penalty</th></tr>
         </thead>
         <tbody></tbody>
       </table>
@@ -210,212 +243,249 @@
 </div>
 
 <script>
-/* ✔️ YOUR URL INSERTED */
-const API_URL = "https://script.google.com/macros/s/AKfycbyPTX388tk-SwDsmw2G1cZM7UsaDJb-Td5u8IZ5jIVz8WrpghAyYpaCxhCkJErTyYXfDA/exec";
+  const STORAGE_KEY = "smartAttendanceSessionsV1";
 
-let currentCompany = null;
-let activeSessions = {};
-let qrScanner = null;
+  let sessions = [];          // all completed sessions {name,date,in,out}
+  let openSessions = {};      // name -> {date,in}
+  let qrScanner = null;
 
-function showTab(t){
-  document.getElementById("scanTab").classList.toggle("hidden", t!=="scan");
-  document.getElementById("reportTab").classList.toggle("hidden", t!=="report");
-  document.getElementById("tabScan").classList.toggle("active", t==="scan");
-  document.getElementById("tabReport").classList.toggle("active", t==="report");
-  stopScan();
-}
-
-function login(){
-  let id = loginId.value.trim();
-  let pass = loginPass.value.trim();
-  loginStatus.textContent = "Checking...";
-
-  fetch(API_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      action:"login",
-      loginId:id,
-      password:pass
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    if(!d.success){
-      loginStatus.textContent="Invalid Login";
-      loginStatus.classList.add("error");
-      return;
+  // ===== INIT =====
+  function init() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try { sessions = JSON.parse(saved); } catch(e) { sessions = []; }
     }
-    currentCompany=d;
 
-    loginCard.classList.add("hidden");
-    appCard.classList.remove("hidden");
+    const now = new Date();
+    const opts = { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' };
+    document.getElementById('todayLabel').textContent =
+      now.toLocaleDateString('en-GB', opts);
 
-    companyTitle.textContent=d.companyName;
-    todayLabel.textContent=new Date().toDateString();
+    document.getElementById('yearInput').value = now.getFullYear();
+    document.getElementById('monthInput').value = now.getMonth() + 1;
 
-    let now=new Date();
-    yearInput.value=now.getFullYear();
-    monthInput.value=now.getMonth()+1;
-  })
-  .catch(()=>{
-    loginStatus.textContent="Network Error";
-  });
-}
-
-function startScan(){
-  reader.classList.remove("hidden");
-  scanStatus.textContent="Opening Camera...";
-
-  if(qrScanner){
-    qrScanner.clear();
+    refreshTodayTable();
   }
 
-  qrScanner=new Html5Qrcode("reader");
-
-  qrScanner.start(
-    { facingMode:"environment" },
-    { fps:10, qrbox:{width:250,height:250} },
-    text=>{
-      scanStatus.textContent="Scanned: "+text;
-      markAttendance(text);
-    }
-  )
-  .catch(e=>{
-    scanStatus.textContent="Camera Error: "+e;
-  });
-}
-
-function stopScan(){
-  if(qrScanner){
-    qrScanner.stop().catch(()=>{});
-    qrScanner.clear().catch(()=>{});
+  // ===== TAB SWITCH =====
+  function showTab(tab) {
+    document.getElementById('scanTab').classList.toggle('hidden', tab !== 'scan');
+    document.getElementById('reportTab').classList.toggle('hidden', tab !== 'report');
+    document.getElementById('tabScan').classList.toggle('active', tab === 'scan');
+    document.getElementById('tabReport').classList.toggle('active', tab === 'report');
+    if (tab === 'report') stopScan();
   }
-  reader.classList.add("hidden");
-}
 
-function markAttendance(name){
-  let now=new Date();
-  let date=now.toISOString().slice(0,10);
-  let time=now.toTimeString().slice(0,5);
+  // ===== QR SCANNING =====
+  function startScan() {
+    const readerDiv = document.getElementById('reader');
+    const status = document.getElementById('scanStatus');
+    readerDiv.classList.remove('hidden');
+    status.textContent = 'Opening camera...';
 
-  if(!activeSessions[name]){
-    activeSessions[name]={in:time, out:""};
-    save(name,date,time,"","");
-  }else{
-    if(!activeSessions[name].out){
-      activeSessions[name].out=time;
-      save(name,date,activeSessions[name].in,time);
-    }else{
-      activeSessions[name]={in:time,out:""};
-      save(name,date,time,"");
+    if (qrScanner) {
+      qrScanner.clear().catch(()=>{});
+      qrScanner = null;
     }
+
+    qrScanner = new Html5Qrcode("reader");
+    const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+    qrScanner.start(
+      { facingMode: "environment" },
+      config,
+      decodedText => {
+        status.textContent = 'Scanned: ' + decodedText;
+        markAttendance(decodedText.trim());
+      },
+      () => {}
+    ).catch(err => {
+      console.error(err);
+      status.textContent = 'Camera error: ' + err;
+      readerDiv.classList.add('hidden');
+    });
   }
-  updateTable();
-}
 
-function updateTable(){
-  let tbody=document.querySelector("#todayTable tbody");
-  tbody.innerHTML="";
-  Object.keys(activeSessions).forEach(n=>{
-    let s=activeSessions[n];
-    tbody.innerHTML+=`<tr><td>${n}</td><td>${s.in}</td><td>${s.out||""}</td></tr>`;
-  });
-}
+  function stopScan() {
+    const readerDiv = document.getElementById('reader');
+    if (qrScanner) {
+      qrScanner.stop().catch(()=>{});
+      qrScanner.clear().catch(()=>{});
+      qrScanner = null;
+    }
+    readerDiv.classList.add('hidden');
+    document.getElementById('scanStatus').textContent = '';
+  }
 
-function save(name,date,inT,outT){
-  fetch(API_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      action:"saveSession",
-      companyId:currentCompany.companyId,
-      employeeName:name,
-      date:date,
-      inTime:inT,
-      outTime:outT
-    })
-  });
-}
+  // ===== ATTENDANCE LOGIC =====
+  function markAttendance(name) {
+    if (!name) return;
 
-function generateReport(){
-  reportStatus.textContent="Loading...";
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0,10);
+    const timeStr = now.toTimeString().slice(0,5);
 
-  fetch(API_URL,{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body:JSON.stringify({
-      action:"monthReport",
-      companyId:currentCompany.companyId,
-      year:Number(yearInput.value),
-      month:Number(monthInput.value)
-    })
-  })
-  .then(r=>r.json())
-  .then(d=>{
-    if(!d.success){
-      reportStatus.textContent="Error loading report";
-      return;
+    const key = name + "|" + dateStr;
+
+    if (!openSessions[key]) {
+      // IN
+      openSessions[key] = { name, date: dateStr, in: timeStr };
+    } else {
+      // OUT → complete session
+      const rec = {
+        name,
+        date: dateStr,
+        in: openSessions[key].in,
+        out: timeStr
+      };
+      sessions.push(rec);
+      delete openSessions[key];
+      saveSessions();
     }
 
-    let shift=shiftInput.value||"09:00";
-    let grace=Number(graceInput.value);
-    let lateLimit=Number(lateLimitInput.value);
+    refreshTodayTable();
+  }
 
-    let summary=buildSummary(d.records,shift,grace,lateLimit);
+  function refreshTodayTable() {
+    const tbody = document.querySelector('#todayTable tbody');
+    tbody.innerHTML = "";
+    const today = new Date().toISOString().slice(0,10);
 
-    let tbody=document.querySelector("#reportTable tbody");
-    tbody.innerHTML="";
-    Object.keys(summary).forEach(n=>{
-      let s=summary[n];
-      tbody.innerHTML+=`
-      <tr>
-        <td>${n}</td>
-        <td>${s.present}</td>
-        <td>${s.late}</td>
-        <td>${s.half}</td>
-      </tr>`;
+    // Show completed sessions for today
+    const todaySessions = sessions.filter(s => s.date === today);
+    todaySessions.forEach(rec => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${rec.name}</td><td>${rec.in}</td><td>${rec.out}</td>`;
+      tbody.appendChild(tr);
     });
 
-    reportStatus.textContent="Report Ready";
-  });
-}
+    // Show open sessions as rows with blank OUT
+    Object.values(openSessions).forEach(rec => {
+      if (rec.date === today) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${rec.name}</td><td>${rec.in}</td><td>—</td>`;
+        tbody.appendChild(tr);
+      }
+    });
+  }
 
-function buildSummary(records,shift,grace,lateLimit){
-  let map={};
-  let [sh,sm]=shift.split(":").map(Number);
-  let shiftMin=sh*60+sm;
+  function saveSessions() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+  }
 
-  records.forEach(r=>{
-    let n=r.employeeName;
-    let d=r.date;
-    let t=r.inTime;
-    if(!t)return;
+  function clearToday() {
+    if (!confirm("Clear only today's records on this device?")) return;
+    const today = new Date().toISOString().slice(0,10);
+    sessions = sessions.filter(s => s.date !== today);
+    Object.keys(openSessions).forEach(k => {
+      if (openSessions[k].date === today) delete openSessions[k];
+    });
+    saveSessions();
+    refreshTodayTable();
+  }
 
-    let [h,m]=t.split(":").map(Number);
-    let mins=h*60+m;
+  // ===== CSV EXPORT =====
+  function exportCSV() {
+    if (!sessions.length) {
+      alert("No completed records to export.");
+      return;
+    }
+    const header = ["Name","Date","In Time","Out Time","Duration (hrs)"];
+    const rows = [header];
 
-    if(!map[n])map[n]={days:{}};
-    if(!map[n].days[d] || mins<map[n].days[d]) map[n].days[d]=mins;
-  });
-
-  let out={};
-  Object.keys(map).forEach(n=>{
-    let days=Object.keys(map[n].days);
-    let late=0;
-    days.forEach(d=>{
-      if(map[n].days[d] > shiftMin+grace) late++;
+    sessions.forEach(rec => {
+      const dur = calcDuration(rec.in, rec.out);
+      rows.push([rec.name, rec.date, rec.in, rec.out, dur.toFixed(2)]);
     });
 
-    out[n]={
-      present:days.length,
-      late:late,
-      half:(late>=lateLimit?0.5:0)
-    };
-  });
+    const csv = rows.map(r => r.map(x => `"${x}"`).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-  return out;
-}
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = "attendance_data.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function calcDuration(inTime, outTime) {
+    if (!inTime || !outTime) return 0;
+    const [ih,im] = inTime.split(":").map(Number);
+    const [oh,om] = outTime.split(":").map(Number);
+    let mins = (oh*60+om) - (ih*60+im);
+    if (mins < 0) mins = 0;
+    return mins / 60;
+  }
+
+  // ===== MONTHLY REPORT =====
+  function generateReport() {
+    const year = Number(document.getElementById('yearInput').value);
+    const month = Number(document.getElementById('monthInput').value);
+    const shift = document.getElementById('shiftInput').value || "09:00";
+    const grace = Number(document.getElementById('graceInput').value || 0);
+    const lateLimit = Number(document.getElementById('lateLimitInput').value || 3);
+    const status = document.getElementById('reportStatus');
+
+    status.textContent = "Calculating...";
+    const prefix = year + "-" + String(month).padStart(2,"0");
+
+    const monthRecs = sessions.filter(r => r.date.startsWith(prefix));
+    const summary = buildMonthlySummary(monthRecs, shift, grace, lateLimit);
+
+    const tbody = document.querySelector('#reportTable tbody');
+    tbody.innerHTML = "";
+    Object.keys(summary).forEach(name => {
+      const s = summary[name];
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${name}</td><td>${s.present}</td><td>${s.late}</td><td>${s.half}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    status.textContent = `Report ready for ${Object.keys(summary).length} employees.`;
+  }
+
+  function buildMonthlySummary(records, shiftStart, graceMinutes, lateLimit) {
+    const empDayMap = {}; // name -> date -> earliestIn
+    const [sh,sm] = shiftStart.split(":").map(Number);
+    const shiftMin = sh*60 + sm;
+    const grace = Number(graceMinutes||0);
+
+    records.forEach(r => {
+      const name = r.name;
+      const date = r.date;
+      const inTime = r.in;
+      if (!name || !date || !inTime) return;
+      const [h,m] = inTime.split(":").map(Number);
+      const mins = h*60 + m;
+
+      if (!empDayMap[name]) empDayMap[name] = {};
+      if (!empDayMap[name][date] || mins < empDayMap[name][date]) {
+        empDayMap[name][date] = mins;
+      }
+    });
+
+    const out = {};
+    Object.keys(empDayMap).forEach(name => {
+      const days = Object.keys(empDayMap[name]);
+      let late = 0;
+      days.forEach(d => {
+        if (empDayMap[name][d] > shiftMin + grace) late++;
+      });
+      out[name] = {
+        present: days.length,
+        late: late,
+        half: late >= lateLimit ? 0.5 : 0
+      };
+    });
+
+    return out;
+  }
+
+  // ===== START =====
+  init();
 </script>
 </body>
 </html>
