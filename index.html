@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart QR Attendance</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #e3f2fd, #e0f2f1 40%, #f5f5f5 80%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(255,255,255,0.96);
+      border-radius: 20px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      overflow: hidden;
+      animation: floatIn 0.5s ease-out;
+    }
+
+    @keyframes floatIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .card-header {
+      padding: 16px 20px;
+      background: linear-gradient(135deg, #1976d2, #00bfa5);
+      color: white;
+    }
+
+    .card-header h1 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+
+    .card-subtitle {
+      font-size: 0.8rem;
+      opacity: 0.85;
+      margin-top: 4px;
+    }
+
+    .card-body { padding: 18px 20px; }
+
+    label {
+      font-size: 0.85rem;
+      color: #555;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid #cfd8dc;
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    input:focus {
+      border-color: #1976d2;
+      box-shadow: 0 0 0 2px rgba(25,118,210,0.2);
+    }
+
+    button {
+      width: 100%;
+      padding: 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      margin-top: 6px;
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, #1976d2, #00b0ff);
+      color: white;
+      box-shadow: 0 6px 18px rgba(25,118,210,0.4);
+    }
+
+    button.secondary {
+      background: #eceff1;
+    }
+
+    .status { font-size: 0.8rem; min-height: 20px; }
+    .status.error { color: #c62828; }
+    .status.ok { color: #2e7d32; }
+    .hidden { display:none !important; }
+
+    #reader {
+      margin-top: 10px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #000;
+    }
+
+    .tabs { display:flex; gap:6px; margin-bottom:10px; }
+    .tab-btn {
+      flex:1; padding:6px; border-radius:999px; border:none; cursor:pointer;
+      background:#eceff1; font-size:0.8rem;
+    }
+    .tab-btn.active {
+      background:#1976d2; color:white;
+      box-shadow:0 4px 10px rgba(25,118,210,0.4);
+    }
+
+    table {
+      width:100%; border-collapse:collapse; margin-top:10px;
+      font-size:0.8rem;
+    }
+    th,td { padding:6px 4px; border-bottom:1px solid #eceff1; }
+    th { background:#eceff1; }
+    tbody tr:nth-child(even) { background:#f9f9f9; }
+
+  </style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="card" id="loginCard">
+  <div class="card-header">
+    <h1>Smart QR Attendance</h1>
+    <div class="card-subtitle">Multi-company Login</div>
+  </div>
+
+  <div class="card-body">
+    <label>Login ID</label>
+    <input id="loginId" type="text">
+
+    <label>Password</label>
+    <input id="loginPass" type="password">
+
+    <button class="primary" onclick="login()">Login</button>
+    <div id="loginStatus" class="status"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="card hidden" id="appCard">
+  <div class="card-header">
+    <h1 id="companyTitle">Attendance</h1>
+    <div class="card-subtitle" id="todayLabel"></div>
+  </div>
+
+  <div class="card-body">
+
+    <div class="tabs">
+      <button id="tabScan" class="tab-btn active" onclick="showTab('scan')">Scan</button>
+      <button id="tabReport" class="tab-btn" onclick="showTab('report')">Report</button>
+    </div>
+
+    <!-- SCAN TAB -->
+    <div id="scanTab">
+      <button class="primary" onclick="startScan()">📷 Scan QR</button>
+      <button class="secondary" onclick="stopScan()">Stop</button>
+      <div id="scanStatus" class="status"></div>
+
+      <div id="reader" class="hidden"></div>
+
+      <table id="todayTable">
+        <thead><tr><th>Name</th><th>IN</th><th>OUT</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- REPORT TAB -->
+    <div id="reportTab" class="hidden">
+      <label>Year</label>
+      <input id="yearInput" type="number">
+
+      <label>Month (1-12)</label>
+      <input id="monthInput" type="number">
+
+      <label>Shift Start (HH:MM)</label>
+      <input id="shiftInput" type="time" value="09:00">
+
+      <label>Grace Minutes</label>
+      <input id="graceInput" type="number" value="15">
+
+      <label>Late Days for Half-Day</label>
+      <input id="lateLimitInput" type="number" value="3">
+
+      <button class="primary" onclick="generateReport()">Generate</button>
+      <div id="reportStatus" class="status"></div>
+
+      <table id="reportTable">
+        <thead>
+          <tr><th>Name</th><th>Present</th><th>Late</th><th>Half-Day</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ✔️ YOUR URL INSERTED */
+const API_URL = "https://script.google.com/macros/s/AKfycbyPTX388tk-SwDsmw2G1cZM7UsaDJb-Td5u8IZ5jIVz8WrpghAyYpaCxhCkJErTyYXfDA/exec";
+
+let currentCompany = null;
+let activeSessions = {};
+let qrScanner = null;
+
+function showTab(t){
+  document.getElementById("scanTab").classList.toggle("hidden", t!=="scan");
+  document.getElementById("reportTab").classList.toggle("hidden", t!=="report");
+  document.getElementById("tabScan").classList.toggle("active", t==="scan");
+  document.getElementById("tabReport").classList.toggle("active", t==="report");
+  stopScan();
+}
+
+function login(){
+  let id = loginId.value.trim();
+  let pass = loginPass.value.trim();
+  loginStatus.textContent = "Checking...";
+
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      action:"login",
+      loginId:id,
+      password:pass
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d.success){
+      loginStatus.textContent="Invalid Login";
+      loginStatus.classList.add("error");
+      return;
+    }
+    currentCompany=d;
+
+    loginCard.classList.add("hidden");
+    appCard.classList.remove("hidden");
+
+    companyTitle.textContent=d.companyName;
+    todayLabel.textContent=new Date().toDateString();
+
+    let now=new Date();
+    yearInput.value=now.getFullYear();
+    monthInput.value=now.getMonth()+1;
+  })
+  .catch(()=>{
+    loginStatus.textContent="Network Error";
+  });
+}
+
+function startScan(){
+  reader.classList.remove("hidden");
+  scanStatus.textContent="Opening Camera...";
+
+  if(qrScanner){
+    qrScanner.clear();
+  }
+
+  qrScanner=new Html5Qrcode("reader");
+
+  qrScanner.start(
+    { facingMode:"environment" },
+    { fps:10, qrbox:{width:250,height:250} },
+    text=>{
+      scanStatus.textContent="Scanned: "+text;
+      markAttendance(text);
+    }
+  )
+  .catch(e=>{
+    scanStatus.textContent="Camera Error: "+e;
+  });
+}
+
+function stopScan(){
+  if(qrScanner){
+    qrScanner.stop().catch(()=>{});
+    qrScanner.clear().catch(()=>{});
+  }
+  reader.classList.add("hidden");
+}
+
+function markAttendance(name){
+  let now=new Date();
+  let date=now.toISOString().slice(0,10);
+  let time=now.toTimeString().slice(0,5);
+
+  if(!activeSessions[name]){
+    activeSessions[name]={in:time, out:""};
+    save(name,date,time,"","");
+  }else{
+    if(!activeSessions[name].out){
+      activeSessions[name].out=time;
+      save(name,date,activeSessions[name].in,time);
+    }else{
+      activeSessions[name]={in:time,out:""};
+      save(name,date,time,"");
+    }
+  }
+  updateTable();
+}
+
+function updateTable(){
+  let tbody=document.querySelector("#todayTable tbody");
+  tbody.innerHTML="";
+  Object.keys(activeSessions).forEach(n=>{
+    let s=activeSessions[n];
+    tbody.innerHTML+=`<tr><td>${n}</td><td>${s.in}</td><td>${s.out||""}</td></tr>`;
+  });
+}
+
+function save(name,date,inT,outT){
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      action:"saveSession",
+      companyId:currentCompany.companyId,
+      employeeName:name,
+      date:date,
+      inTime:inT,
+      outTime:outT
+    })
+  });
+}
+
+function generateReport(){
+  reportStatus.textContent="Loading...";
+
+  fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      action:"monthReport",
+      companyId:currentCompany.companyId,
+      year:Number(yearInput.value),
+      month:Number(monthInput.value)
+    })
+  })
+  .then(r=>r.json())
+  .then(d=>{
+    if(!d.success){
+      reportStatus.textContent="Error loading report";
+      return;
+    }
+
+    let shift=shiftInput.value||"09:00";
+    let grace=Number(graceInput.value);
+    let lateLimit=Number(lateLimitInput.value);
+
+    let summary=buildSummary(d.records,shift,grace,lateLimit);
+
+    let tbody=document.querySelector("#reportTable tbody");
+    tbody.innerHTML="";
+    Object.keys(summary).forEach(n=>{
+      let s=summary[n];
+      tbody.innerHTML+=`
+      <tr>
+        <td>${n}</td>
+        <td>${s.present}</td>
+        <td>${s.late}</td>
+        <td>${s.half}</td>
+      </tr>`;
+    });
+
+    reportStatus.textContent="Report Ready";
+  });
+}
+
+function buildSummary(records,shift,grace,lateLimit){
+  let map={};
+  let [sh,sm]=shift.split(":").map(Number);
+  let shiftMin=sh*60+sm;
+
+  records.forEach(r=>{
+    let n=r.employeeName;
+    let d=r.date;
+    let t=r.inTime;
+    if(!t)return;
+
+    let [h,m]=t.split(":").map(Number);
+    let mins=h*60+m;
+
+    if(!map[n])map[n]={days:{}};
+    if(!map[n].days[d] || mins<map[n].days[d]) map[n].days[d]=mins;
+  });
+
+  let out={};
+  Object.keys(map).forEach(n=>{
+    let days=Object.keys(map[n].days);
+    let late=0;
+    days.forEach(d=>{
+      if(map[n].days[d] > shiftMin+grace) late++;
+    });
+
+    out[n]={
+      present:days.length,
+      late:late,
+      half:(late>=lateLimit?0.5:0)
+    };
+  });
+
+  return out;
+}
+</script>
+</body>
+</html>
